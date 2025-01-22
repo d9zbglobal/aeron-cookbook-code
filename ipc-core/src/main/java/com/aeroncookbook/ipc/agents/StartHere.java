@@ -19,8 +19,6 @@ package com.aeroncookbook.ipc.agents;
 import io.aeron.Aeron;
 import io.aeron.Publication;
 import io.aeron.Subscription;
-import io.aeron.driver.MediaDriver;
-import io.aeron.driver.ThreadingMode;
 import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
@@ -42,19 +40,19 @@ public class StartHere
         final ShutdownSignalBarrier barrier = new ShutdownSignalBarrier();
 
         //construct Media Driver, cleaning up media driver folder on start/stop
-        final MediaDriver.Context mediaDriverCtx = new MediaDriver.Context()
-            .dirDeleteOnStart(true)
-            .threadingMode(ThreadingMode.SHARED)
-            .sharedIdleStrategy(new BusySpinIdleStrategy())
-            .dirDeleteOnShutdown(true);
-        final MediaDriver mediaDriver = MediaDriver.launchEmbedded(mediaDriverCtx);
+//        final MediaDriver.Context mediaDriverCtx = new MediaDriver.Context()
+//            .dirDeleteOnStart(true)
+//            .threadingMode(ThreadingMode.SHARED)
+//            .sharedIdleStrategy(new BusySpinIdleStrategy())
+//            .dirDeleteOnShutdown(true);
+//        final MediaDriver mediaDriver = MediaDriver.launchEmbedded(mediaDriverCtx);
 
         //construct Aeron, pointing at the media driver's folder
-        final Aeron.Context aeronCtx = new Aeron.Context()
-            .aeronDirectoryName(mediaDriver.aeronDirectoryName());
+        final Aeron.Context aeronCtx = new Aeron.Context();
+//            .aeronDirectoryName(mediaDriver.aeronDirectoryName());
         final Aeron aeron = Aeron.connect(aeronCtx);
 
-        LOGGER.info("Dir {}", mediaDriver.aeronDirectoryName());
+//        LOGGER.info("Dir {}", mediaDriver.aeronDirectoryName());
 
         //construct the subs and pubs
         final Subscription subscription = aeron.addSubscription(channel, stream);
@@ -81,6 +79,5 @@ public class StartHere
         receiveAgentRunner.close();
         sendAgentRunner.close();
         aeron.close();
-        mediaDriver.close();
     }
 }
