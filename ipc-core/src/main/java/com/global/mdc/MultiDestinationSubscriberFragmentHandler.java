@@ -18,13 +18,13 @@ public class MultiDestinationSubscriberFragmentHandler implements FragmentHandle
     public void onFragment(final DirectBuffer buffer, final int offset, final int length, final Header header)
     {
         final long read = buffer.getLong(offset);
-        long channelRcvTimestamp;
+        final long channelRcvTimestamp;
         String readableTimestamp = null;
         if (0 != header.reservedValue())
         {
             channelRcvTimestamp = header.reservedValue();
-            Instant instant = Instant.ofEpochMilli(channelRcvTimestamp/1000000);
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+            final Instant instant = Instant.ofEpochMilli(channelRcvTimestamp / 1000000);
+            final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
                 .withZone(ZoneId.systemDefault());
             readableTimestamp = formatter.format(instant);
         }

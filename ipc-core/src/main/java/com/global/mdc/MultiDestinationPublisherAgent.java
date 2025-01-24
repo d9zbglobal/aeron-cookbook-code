@@ -39,13 +39,13 @@ public class MultiDestinationPublisherAgent implements Agent
             .dirDeleteOnStart(true)
             .threadingMode(ThreadingMode.SHARED)
             .sharedIdleStrategy(new SleepingMillisIdleStrategy());
-        MediaDriver mediaDriver = MediaDriver.launch(ctx);
+        final MediaDriver mediaDriver = MediaDriver.launch(ctx);
 
         // Connect an Aeron client using the internal MediaDriver
         this.aeron = Aeron.connect(new Aeron.Context()
             .aeronDirectoryName(mediaDriver.aeronDirectoryName())
             .idleStrategy(new SleepingMillisIdleStrategy()));
-        String publicationChannel = new ChannelUriStringBuilder().media(UDP_MEDIA)
+        final String publicationChannel = new ChannelUriStringBuilder().media(UDP_MEDIA)
             .controlEndpoint(publisherControlHost + ":" + publisherControlPort)
             .controlMode(MDC_CONTROL_MODE_DYNAMIC)
             .minFlowControl(2, null)

@@ -34,10 +34,13 @@ public class MultiDestinationSubscriber
             try
             {
                 delay = Integer.parseInt(args[1]);
-                if (delay < 0) {
+                if (delay < 0)
+                {
                     throw new IllegalArgumentException("Delay must be a positive integer.");
                 }
-            } catch (NumberFormatException e) {
+            }
+            catch (final NumberFormatException e)
+            {
                 throw new IllegalArgumentException("Invalid delay value. Please provide a positive integer.");
             }
         }
