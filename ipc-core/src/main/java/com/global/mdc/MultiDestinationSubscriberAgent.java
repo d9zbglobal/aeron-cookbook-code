@@ -1,6 +1,7 @@
 package com.global.mdc;
 
 import io.aeron.Aeron;
+import io.aeron.ChannelUriStringBuilder;
 import io.aeron.Subscription;
 import io.aeron.driver.MediaDriver;
 import io.aeron.driver.ThreadingMode;
@@ -9,6 +10,9 @@ import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static io.aeron.CommonContext.MDC_CONTROL_MODE_DYNAMIC;
+import static io.aeron.CommonContext.UDP_MEDIA;
 
 public class MultiDestinationSubscriberAgent implements Agent
 {
@@ -39,11 +43,17 @@ public class MultiDestinationSubscriberAgent implements Agent
             .idleStrategy(new SleepingMillisIdleStrategy()));
 
         // Add the MDC subscription
-        final String channel = "aeron:udp?endpoint=" + subscriberHost +
-            ":" + subscriberPort + "|control=" + publisherControlHost + ":" +
-            publisherControlPort + "|control-mode=dynamic";
+        final String channel = new ChannelUriStringBuilder().media(UDP_MEDIA)
+            .endpoint("0.0.0.0:0") // an ephemeral post on the local machine
+            .controlEndpoint(publisherControlHost + ":" + publisherControlPort)
+            .channelReceiveTimestampOffset("reserved")
+//            .receiverWindowLength(1024)
+            .controlMode(MDC_CONTROL_MODE_DYNAMIC).build();
+
+
         LOGGER.info("Adding the subscription to channel: {}", channel);
         this.mdcSubscription = aeron.addSubscription(channel, STREAM_ID);
+        LOGGER.info(mdcSubscription.resolvedEndpoint());
 
         this.delay = delay * 1000; // Convert delay to milliseconds
     }

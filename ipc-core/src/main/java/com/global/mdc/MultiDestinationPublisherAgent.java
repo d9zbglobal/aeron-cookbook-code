@@ -1,6 +1,7 @@
 package com.global.mdc;
 
 import io.aeron.Aeron;
+import io.aeron.ChannelUriStringBuilder;
 import io.aeron.Publication;
 import io.aeron.driver.MediaDriver;
 import io.aeron.driver.ThreadingMode;
@@ -12,6 +13,9 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 
+import static io.aeron.CommonContext.MDC_CONTROL_MODE_DYNAMIC;
+import static io.aeron.CommonContext.UDP_MEDIA;
+
 public class MultiDestinationPublisherAgent implements Agent
 {
     private static final EpochClock CLOCK = SystemEpochClock.INSTANCE;
@@ -20,9 +24,9 @@ public class MultiDestinationPublisherAgent implements Agent
     private final Aeron aeron;
     private final MutableDirectBuffer mutableDirectBuffer;
     private final Publication publication;
+    private final ShutdownSignalBarrier barrier;
     private long nextAppend = Long.MIN_VALUE;
     private long lastSeq = 0;
-    private final ShutdownSignalBarrier barrier;
 
     public MultiDestinationPublisherAgent(final String publisherControlHost, final int publisherControlPort,
         final ShutdownSignalBarrier barrier)
@@ -30,20 +34,29 @@ public class MultiDestinationPublisherAgent implements Agent
         this.mutableDirectBuffer = new UnsafeBuffer(ByteBuffer.allocateDirect(Long.BYTES));
 
         LOGGER.info("launching aeron");
-         MediaDriver mediaDriver = MediaDriver.launch(new MediaDriver.Context()
+        final MediaDriver.Context ctx = new MediaDriver.Context()
+            .aeronDirectoryName("/Users/dan.scarborough/dev/tmp")
             .dirDeleteOnStart(true)
             .threadingMode(ThreadingMode.SHARED)
-            .sharedIdleStrategy(new SleepingMillisIdleStrategy()));
+            .sharedIdleStrategy(new SleepingMillisIdleStrategy());
+        MediaDriver mediaDriver = MediaDriver.launch(ctx);
 
         // Connect an Aeron client using the internal MediaDriver
         this.aeron = Aeron.connect(new Aeron.Context()
             .aeronDirectoryName(mediaDriver.aeronDirectoryName())
             .idleStrategy(new SleepingMillisIdleStrategy()));
-        final String publicationChannel = "aeron:udp?control-mode=dynamic|control=" + publisherControlHost +
-            ":" + publisherControlPort + "|fc=min,g:/2";
-//            ":" + publisherControlPort + "|fc=min";
+        String publicationChannel = new ChannelUriStringBuilder().media(UDP_MEDIA)
+            .controlEndpoint(publisherControlHost + ":" + publisherControlPort)
+            .controlMode(MDC_CONTROL_MODE_DYNAMIC)
+            .minFlowControl(2, null)
+            .channelSendTimestampOffset("reserved")
+            .receiverWindowLength(1024 * 64)
+            .build();
+
         LOGGER.info("creating publication {}", publicationChannel);
         publication = aeron.addPublication(publicationChannel, STREAM_ID);
+        LOGGER.info("term length {}, available window {}", publication.termBufferLength(),
+            publication.availableWindow());
         this.barrier = barrier;
     }
 
@@ -69,20 +82,23 @@ public class MultiDestinationPublisherAgent implements Agent
                 lastSeq += 1;
                 mutableDirectBuffer.putLong(0, lastSeq);
                 final long offer = publication.offer(mutableDirectBuffer, 0, Long.BYTES);
-                if(offer < 0)
+                if (offer < 0)
                 {
-                   LOGGER.error("unexpected failure {}", offer);
-                   barrier.signal();
+                    LOGGER.error("unexpected failure {}", Publication.errorString(offer));
+                    barrier.signal();
                 }
 
                 LOGGER.info("appended {}", lastSeq);
             }
             else
             {
-                LOGGER.info("awaiting subscribers");
+                if (nextAppend % 1000 == 0)
+                {
+                    LOGGER.info("awaiting subscribers");
+                }
             }
             nextAppend = CLOCK.time();
-            if(lastSeq == 10000)
+            if (lastSeq == 10000)
             {
                 barrier.signal();
             }
