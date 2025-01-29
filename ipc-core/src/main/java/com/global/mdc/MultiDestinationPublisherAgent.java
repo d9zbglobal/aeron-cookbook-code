@@ -3,6 +3,11 @@ package com.global.mdc;
 import io.aeron.Aeron;
 import io.aeron.ChannelUriStringBuilder;
 import io.aeron.Publication;
+import io.aeron.archive.Archive.Context;
+import io.aeron.archive.ArchiveThreadingMode;
+import io.aeron.archive.ArchivingMediaDriver;
+import io.aeron.archive.client.AeronArchive;
+import io.aeron.archive.codecs.SourceLocation;
 import io.aeron.driver.MediaDriver;
 import io.aeron.driver.ThreadingMode;
 import org.agrona.CloseHelper;
@@ -25,7 +30,7 @@ public class MultiDestinationPublisherAgent implements Agent
     private final MutableDirectBuffer mutableDirectBuffer;
     private final Publication publication;
     private final ShutdownSignalBarrier barrier;
-    private long nextAppend = Long.MIN_VALUE;
+    private long nextAppend = 0;
     private long lastSeq = 0;
 
     public MultiDestinationPublisherAgent(final String publisherControlHost, final int publisherControlPort,
@@ -33,18 +38,29 @@ public class MultiDestinationPublisherAgent implements Agent
     {
         this.mutableDirectBuffer = new UnsafeBuffer(ByteBuffer.allocateDirect(Long.BYTES));
 
-        LOGGER.info("launching aeron");
-        final MediaDriver.Context ctx = new MediaDriver.Context()
-            .aeronDirectoryName("/Users/dan.scarborough/dev/tmp")
+        LOGGER.info("launching ArchivingMediaDriver");
+        final MediaDriver.Context mediaDriverContext = new MediaDriver.Context()
+            .aeronDirectoryName("/Users/dan.scarborough/dev/aeron-files/driver")
             .dirDeleteOnStart(true)
             .threadingMode(ThreadingMode.SHARED)
             .sharedIdleStrategy(new SleepingMillisIdleStrategy());
-        final MediaDriver mediaDriver = MediaDriver.launch(ctx);
 
-        // Connect an Aeron client using the internal MediaDriver
+        final Context archiveContext = new Context()
+            .aeronDirectoryName(mediaDriverContext.aeronDirectoryName())
+            .archiveDirectoryName("/Users/dan.scarborough/dev/aeron-files/archive")
+            .deleteArchiveOnStart(false)
+            .threadingMode(ArchiveThreadingMode.SHARED)
+            .idleStrategySupplier(SleepingMillisIdleStrategy::new)
+            .controlChannel("aeron:udp?endpoint=localhost:8010")
+            .replicationChannel("aeron:udp?endpoint=localhost:8012");
+
+        LOGGER.info("launching ArchivingMediaDriver");
+        ArchivingMediaDriver.launch(mediaDriverContext, archiveContext);
+
         this.aeron = Aeron.connect(new Aeron.Context()
-            .aeronDirectoryName(mediaDriver.aeronDirectoryName())
+            .aeronDirectoryName(mediaDriverContext.aeronDirectoryName())
             .idleStrategy(new SleepingMillisIdleStrategy()));
+
         final String publicationChannel = new ChannelUriStringBuilder().media(UDP_MEDIA)
             .controlEndpoint(publisherControlHost + ":" + publisherControlPort)
             .controlMode(MDC_CONTROL_MODE_DYNAMIC)
@@ -55,8 +71,35 @@ public class MultiDestinationPublisherAgent implements Agent
 
         LOGGER.info("creating publication {}", publicationChannel);
         publication = aeron.addPublication(publicationChannel, STREAM_ID);
-        LOGGER.info("term length {}, available window {}", publication.termBufferLength(),
-            publication.availableWindow());
+        LOGGER.info("term length {}, available window {}",
+            publication.termBufferLength(), publication.availableWindow());
+
+        // Connect to the archive and start recording
+        final AeronArchive.Context archiveClientContext = new AeronArchive.Context()
+            .controlRequestChannel("aeron:udp?endpoint=localhost:8010")
+            .controlResponseChannel("aeron:udp?endpoint=localhost:8011")
+            .idleStrategy(new SleepingMillisIdleStrategy())
+            .aeronDirectoryName(mediaDriverContext.aeronDirectoryName());
+
+        try (AeronArchive archive = AeronArchive.connect(archiveClientContext))
+        {
+            LOGGER.info("Archive directory: {}", archiveContext.archiveDirectoryName());
+            LOGGER.info("Requesting recording for channel: {}, streamId: {}", publicationChannel, STREAM_ID);
+            archive.startRecording(publicationChannel, STREAM_ID, SourceLocation.LOCAL);
+            LOGGER.info("Recording started for channel: {}, streamId: {}", publicationChannel, STREAM_ID);
+
+            // Verify existing recordings
+            archive.listRecordings(0, 10, (controlSessionId, correlationId, recordingId, startTimestamp,
+                stopTimestamp, startPosition, stopPosition, initialTermId, segmentFileLength,
+                termBufferLength, mtuLength, sessionId, streamId, strippedChannel, originalChannel,
+                sourceIdentity) ->
+            {
+                LOGGER.info("Current recordings:");
+                LOGGER.info("Recording ID: {}, Channel: {}, Stream ID: {}", recordingId, originalChannel, streamId);
+            });
+        }
+
+
         this.barrier = barrier;
     }
 
@@ -102,7 +145,6 @@ public class MultiDestinationPublisherAgent implements Agent
             {
                 barrier.signal();
             }
-
         }
 
         return 0;
@@ -122,5 +164,4 @@ public class MultiDestinationPublisherAgent implements Agent
     {
         return "mdc-publisher";
     }
-
 }
