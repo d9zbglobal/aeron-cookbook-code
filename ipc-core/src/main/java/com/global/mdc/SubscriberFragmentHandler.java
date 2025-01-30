@@ -10,9 +10,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
-public class MultiDestinationSubscriberFragmentHandler implements FragmentHandler
+public class SubscriberFragmentHandler implements FragmentHandler
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MultiDestinationSubscriberFragmentHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SubscriberFragmentHandler.class);
 
     @Override
     public void onFragment(final DirectBuffer buffer, final int offset, final int length, final Header header)

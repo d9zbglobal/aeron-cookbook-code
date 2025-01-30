@@ -14,20 +14,19 @@ import org.slf4j.LoggerFactory;
 import static io.aeron.CommonContext.MDC_CONTROL_MODE_DYNAMIC;
 import static io.aeron.CommonContext.UDP_MEDIA;
 
-public class MultiDestinationSubscriberAgent implements Agent
+public class SubscriberAgent implements Agent
 {
-    private static final int STREAM_ID = 100;
-    private static final Logger LOGGER = LoggerFactory.getLogger(MultiDestinationSubscriberAgent.class);
-    private final MultiDestinationSubscriberFragmentHandler fragmentHandler;
+    private static final Logger LOGGER = LoggerFactory.getLogger(SubscriberAgent.class);
+    private final SubscriberFragmentHandler fragmentHandler;
     private final MediaDriver mediaDriver;
     private final Aeron aeron;
     private final Subscription mdcSubscription;
     private final int delay;
 
-    public MultiDestinationSubscriberAgent(final String publisherControlHost, final int publisherControlPort,
-        final String subscriberHost, final int subscriberPort, final int delay)
+    public SubscriberAgent(final String publisherControlHost, final int publisherControlPort,
+        final int delay, final int streamId)
     {
-        this.fragmentHandler = new MultiDestinationSubscriberFragmentHandler();
+        this.fragmentHandler = new SubscriberFragmentHandler();
 
         // Start an internal MediaDriver
         LOGGER.info("launching media driver");
@@ -52,7 +51,7 @@ public class MultiDestinationSubscriberAgent implements Agent
 
 
         LOGGER.info("Adding the subscription to channel: {}", channel);
-        this.mdcSubscription = aeron.addSubscription(channel, STREAM_ID);
+        this.mdcSubscription = aeron.addSubscription(channel, streamId);
         LOGGER.info(mdcSubscription.resolvedEndpoint());
 
         this.delay = delay * 1000; // Convert delay to milliseconds

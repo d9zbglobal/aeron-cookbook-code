@@ -7,9 +7,9 @@ import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MultiDestinationSubscriber
+public class LoggingSubscriber
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MultiDestinationSubscriber.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LoggingSubscriber.class);
 
     public static void main(final String[] args)
     {
@@ -48,11 +48,11 @@ public class MultiDestinationSubscriber
         final int publisherControlPort = 13000;
         final String subscriberHost = "localhost";
         final ShutdownSignalBarrier barrier = new ShutdownSignalBarrier();
-        final MultiDestinationSubscriberAgent hostAgent =
-            new MultiDestinationSubscriberAgent(publisherControlHost, publisherControlPort, subscriberHost,
-            subscriberPort, delay);
+        final SubscriberAgent hostAgent =
+            new SubscriberAgent(publisherControlHost, publisherControlPort,
+                delay, 100);
         final AgentRunner runner =
-            new AgentRunner(new SleepingMillisIdleStrategy(), MultiDestinationSubscriber::errorHandler,
+            new AgentRunner(new SleepingMillisIdleStrategy(), LoggingSubscriber::errorHandler,
             null, hostAgent);
         AgentRunner.startOnThread(runner);
 
