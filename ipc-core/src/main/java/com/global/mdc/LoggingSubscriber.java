@@ -13,21 +13,7 @@ public class LoggingSubscriber
 
     public static void main(final String[] args)
     {
-        if (args == null || args.length == 0 || args[0] == null)
-        {
-            throw new IllegalArgumentException("Subscriber port argument is required and cannot be null.");
-        }
-
-        final int subscriberPort;
-        try
-        {
-            subscriberPort = Integer.parseInt(args[0]);
-        }
-        catch (final NumberFormatException e)
-        {
-            throw new IllegalArgumentException("Invalid subscriber port: must be a valid integer.", e);
-        }
-        // Optional second argument: Delay in milliseconds
+        // Optional argument: Delay in milliseconds to simulate slow subscription
         int delay = 0; // Default delay is 0
         if (args.length > 1)
         {
@@ -46,7 +32,6 @@ public class LoggingSubscriber
         }
         final String publisherControlHost = "localhost";
         final int publisherControlPort = 13000;
-        final String subscriberHost = "localhost";
         final ShutdownSignalBarrier barrier = new ShutdownSignalBarrier();
         final SubscriberAgent hostAgent =
             new SubscriberAgent(publisherControlHost, publisherControlPort,
